@@ -77,7 +77,6 @@ class Game:
         self.target_min_size = min(5, round(min(self.Width, self.Height) * 0.05, 2)) # Minimum size of the target
         self.target_current_size = [self.target_coordinates[2] - self.target_coordinates[0],
                                     self.target_coordinates[3] - self.target_coordinates[1]]
-
         self.last_update_time = time.time()
         self.update_interval = 0.05 * (self.Width/1500) * (self.Height/1000)  # Update interval for shrinking the target
 
@@ -85,8 +84,23 @@ class Game:
         ##Highscores
         self.display_high_scores()
 
+    def reset_game_state(self):
+        self.mirror_coordinates = []
+        self.mirror_spawn_time = None
+        self.pause_state = False
+        self.current_score = 0
+        self.level3_hits = [False, False]
+        self.striker_hit_target = [False] * len(self.strikers)
+        self.barrier1_coordinates = [round(0.3 * self.Width), round(0.58 * self.Height), round(0.45 * self.Width),
+                                     round(0.65 * self.Height)]
+        self.barrier2_coordinates = [round(0.75 * self.Width), round(0.15 * self.Height), round(0.8 * self.Width),
+                                     round(0.35 * self.Height)]
+        self.target_coordinates = [round(0.75 * self.Width), round(0.65 * self.Height), round(0.8 * self.Width),
+                                   round(0.75 * self.Height)]
+
 
     def initialize_strikers(self, level):
+        self.reset_game_state()
         self.strikers = []
         self.striker_velocity = []
         self.mirror_coordinates = []  # Clearing leftover mirrors
@@ -255,7 +269,7 @@ class Game:
         self.current_score += self.mirrors  # Points based on remaining mirrors
 
 
-        self.start_time = time.time()
+        self.start_time = time.time()  #Measures time for level transition
 
         if self.current_level == 1:
             self.state = "level-transition"
@@ -267,7 +281,7 @@ class Game:
 
         elif self.current_level == 3:
 
-            self.level3_hits[striker_index] = True
+            self.level3_hits[striker_index] = True #[False,False] , [True,False], [True,True]
             self.strikers[striker_index] = [-200,-200] #Moving the striker off-screen
 
             if all(self.level3_hits):
@@ -277,6 +291,7 @@ class Game:
 
 
         glutPostRedisplay()
+
 
 
 
@@ -301,9 +316,13 @@ class Game:
 
             fx1, fy1, fx2, fy2 = self.point_of_failure2_coordinates
             return fx1 <= ball_x <= fx2 and fy1 <= ball_y <= fy2
+
         return False
 
     def move_barriers(self):
+        if self.pause_state:
+            return
+
         boundary_left, boundary_right, boundary_top, boundary_bottom = self.boundary_dimensions
 
         # Move barrier 1 (Horizontal distance)
@@ -341,10 +360,12 @@ class Game:
                 abs(striker_y - by1) <= striker_radius or abs(striker_y - by2) <= striker_radius):
             return "horizontal"
 
-        # Vertical collision (left or right edge of barrier)
+        #Vertical collision (left or right edge of barrier)
         if by1 <= striker_y <= by2 and (
                 abs(striker_x - bx1) <= striker_radius or abs(striker_x - bx2) <= striker_radius):
             return "vertical"
+
+
 
         return None
 
@@ -377,6 +398,9 @@ class Game:
         self.strikers[striker_index][1] += self.striker_velocity[striker_index][1]
 
     def update_target_size(self):
+        if self.pause_state:
+            return
+
         current_time = time.time()
 
         ## Check timing interval for shrinking or expanding
